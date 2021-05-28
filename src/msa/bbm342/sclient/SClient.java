@@ -1,15 +1,8 @@
 package msa.bbm342.sclient;
 
 import javax.swing.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
-import java.net.ServerSocket;
-import java.net.Socket;
-import java.util.Scanner;
+import java.util.Date;
 
 public class SClient {
     private static final int PORT = 4242;
@@ -18,11 +11,11 @@ public class SClient {
     private JPanel mainPanel;
     private JButton connectButton;
     private JButton closeConnectionButton;
+    private JLabel fpsLabel;
 
-    private boolean isConnected;
+    private long previousFrameTimestamp;
 
-    private int resolutionX;
-    private int resolutionY;
+    private ASCIIVideoClient videoClient;
 
     public static void main(String[] args) throws UnsupportedLookAndFeelException, ClassNotFoundException, InstantiationException, IllegalAccessException, IOException {
         JFrame frame = new JFrame("SClient");
@@ -38,59 +31,37 @@ public class SClient {
         connectButton.setEnabled(true);
 
         closeConnectionButton.addActionListener(e -> disconnect());
-
         connectButton.addActionListener(e -> connect());
+
+        videoClient = new ASCIIVideoClient("localhost", PORT);
     }
 
     private void disconnect() {
         new Thread(() -> {
-            isConnected = false;
+            videoClient.stopStreaming();
         }).start();
     }
 
     private void connect() {
-        isConnected = true;
         closeConnectionButton.setEnabled(true);
         connectButton.setEnabled(false);
         new Thread(() -> {
             try {
-                Integer numFrames = null;
-                int i = 0;
-                while (isConnected && (i < (numFrames == null ? 1 : numFrames))) {
-                    Socket socket = new Socket("localhost", PORT);
-                    PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-                    BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-
-                    if (numFrames == null) {
-                        out.println("FORMAT");
-                        String response = in.readLine();
-                        System.out.println("Message received: " + response);
-                        Scanner scanner = new Scanner(response);
-                        String resolution = scanner.next();
-                        resolutionX =Integer.parseInt( resolution.split("x")[0]);
-                        resolutionY =Integer.parseInt( resolution.split("x")[1]);
-                        numFrames = scanner.nextInt();
-                    } else {
-                        out.println("GET " + i++);
-                        StringBuilder frameStr = new StringBuilder();
-                        String line;
-                        while ((line = in.readLine()) != null) {
-                            frameStr.append(line);
-                            frameStr.append("\n");
-                        }
-                        frame.setText(frameStr.toString());
+                videoClient.stream(s -> {
+                    frame.setText(s);
+                    long timestamp = System.nanoTime();
+                    if (previousFrameTimestamp != 0) {
+                        long diff = timestamp - previousFrameTimestamp;
+                        double sec = diff / 1000000000.0;
+                        fpsLabel.setText(String.format("FPS: %.2f", 1.0 / sec));
                     }
-
-                    in.close();
-                    out.close();
-                    socket.close();
-                }
+                    previousFrameTimestamp = timestamp;
+                });
                 closeConnectionButton.setEnabled(false);
                 connectButton.setEnabled(true);
-
             } catch (Exception e) {
                 e.printStackTrace();
-                isConnected = false;
+                videoClient.stopStreaming();
                 closeConnectionButton.setEnabled(false);
                 connectButton.setEnabled(true);
             }
