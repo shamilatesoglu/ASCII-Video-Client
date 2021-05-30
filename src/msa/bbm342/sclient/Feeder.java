@@ -49,8 +49,8 @@ public class Feeder implements Runnable {
                 synchronized (frameBuffer) {
                     if (frameBuffer.size() < BUFFER_SIZE) {
                         frameBuffer.add(fetched);
-                        currentFrameIdx++;
                         fetched = null;
+                        currentFrameIdx++;
                     }
                 }
             } catch (IOException e) {

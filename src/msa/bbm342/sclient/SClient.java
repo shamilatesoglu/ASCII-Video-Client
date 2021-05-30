@@ -66,8 +66,8 @@ public class SClient {
                 videoSeek.setMaximum(videoInfo.getFrameCount());
 
                 // Create viewer thread
-                viewer = new Viewer(frameBuffer, f -> {
-                    frame.setText(f.getFrame());
+                viewer = new Viewer(frameBuffer, dequeuedFrame -> {
+                    frame.setText(dequeuedFrame.getFrame());
 
                     // Measure real FPS
                     long timestamp = System.nanoTime();
@@ -83,8 +83,9 @@ public class SClient {
 
                     // Set seek
                     if (videoSeek.getValue() == viewer.getCurrentFrameIdx() - 1) {
-                        frameBuffer.clear();
                         videoSeek.setValue(viewer.getCurrentFrameIdx());
+                    } else {
+                        frameBuffer.clear();
                     }
 
                     frameLabel.setText("Frame: " + viewer.getCurrentFrameIdx() + " / " + videoSeek.getMaximum());
@@ -94,8 +95,10 @@ public class SClient {
                 viewerThread = new Thread(viewer);
 
                 onVideoSeek = e -> {
-                    feeder.setCurrentFrameIdx(videoSeek.getValue());
-                    viewer.setCurrentFrameIdx(videoSeek.getValue());
+                    if (Math.abs(viewer.getCurrentFrameIdx() - videoSeek.getValue()) > 1) {
+                        feeder.setCurrentFrameIdx(videoSeek.getValue());
+                        viewer.setCurrentFrameIdx(videoSeek.getValue());
+                    }
                 };
             } catch (IOException e) {
                 e.printStackTrace();

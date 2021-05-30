@@ -67,8 +67,8 @@ public class Viewer implements Runnable {
                     previous = now;
                 }
 
-                frameConsumer.accept(frame);
                 delta = 0;
+                frameConsumer.accept(frame);
                 currentFrameIdx++;
                 frame = null;
             }
