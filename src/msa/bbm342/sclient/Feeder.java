@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Queue;
+import java.util.concurrent.BlockingQueue;
 
 public class Feeder implements Runnable {
     private static final int NOT_SET = -1;
@@ -12,16 +13,16 @@ public class Feeder implements Runnable {
 
     private final Map<Integer, Frame> frameCache;
 
-    private final Queue<Frame> frameBuffer;
+    private final BlockingQueue<Frame> frameBuffer;
 
     private int currentFrameIdx;
     private final AsciiVideoConnection videoConnection;
     private final VideoInfo videoInfo;
     private final Runnable onEndOfFeed;
 
-    private boolean isFeeding;
+    private boolean feeding;
 
-    public Feeder(AsciiVideoConnection videoConnection, VideoInfo videoInfo, Queue<Frame> frameBuffer, Runnable onEndOfFeed) {
+    public Feeder(AsciiVideoConnection videoConnection, VideoInfo videoInfo, BlockingQueue<Frame> frameBuffer, Runnable onEndOfFeed) {
         this.frameBuffer = frameBuffer;
         this.currentFrameIdx = 0;
         this.videoConnection = videoConnection;
@@ -34,46 +35,38 @@ public class Feeder implements Runnable {
     public void run() {
         start();
 
-        Frame fetched = null;
-        while (isFeeding() && currentFrameIdx < videoInfo.getFrameCount()) {
+        while (feeding && currentFrameIdx < videoInfo.getFrameCount()) {
             try {
-                if (fetched == null) {
-                    int compressedFrameIdx = videoInfo.getCompressedFrameIdx(currentFrameIdx);
-                    if (frameCache.containsKey(compressedFrameIdx)) {
-                        fetched = frameCache.get(compressedFrameIdx);
-                    } else {
-                        fetched = videoConnection.getFrame(compressedFrameIdx);
-                        frameCache.put(compressedFrameIdx, fetched);
-                    }
+                Frame frame;
+                int compressedFrameIdx = videoInfo.getCompressedFrameIdx(currentFrameIdx);
+                if (frameCache.containsKey(compressedFrameIdx)) {
+                    frame = frameCache.get(compressedFrameIdx);
+                } else {
+                    frame = videoConnection.getFrame(compressedFrameIdx);
+                    frameCache.put(compressedFrameIdx, frame);
                 }
-                synchronized (frameBuffer) {
-                    if (frameBuffer.size() < BUFFER_SIZE) {
-                        frameBuffer.add(fetched);
-                        fetched = null;
-                        currentFrameIdx++;
-                    }
-                }
-            } catch (IOException e) {
-                System.err.printf("Error while getting frame: %d%n", currentFrameIdx - 1);
+                frameBuffer.put(frame);
+                currentFrameIdx++;
+            } catch (IOException | InterruptedException e) {
+                System.err.printf("Error while getting frame: %d%n", currentFrameIdx);
                 e.printStackTrace();
             }
         }
 
         stop();
-        System.out.println("End of stream.");
         onEndOfFeed.run();
     }
 
     public boolean isFeeding() {
-        return isFeeding;
+        return feeding;
     }
 
     public void stop() {
-        isFeeding = false;
+        feeding = false;
     }
 
     public void start() {
-        isFeeding = true;
+        feeding = true;
         currentFrameIdx = 0;
         frameCache.clear();
     }

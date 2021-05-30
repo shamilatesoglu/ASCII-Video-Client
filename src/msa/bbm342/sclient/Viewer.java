@@ -1,21 +1,23 @@
 package msa.bbm342.sclient;
 
 import java.util.Queue;
+import java.util.concurrent.BlockingDeque;
+import java.util.concurrent.BlockingQueue;
 import java.util.function.Consumer;
 
 public class Viewer implements Runnable {
     public static final int FPS = 20;
 
     private final Consumer<Frame> frameConsumer;
-    private final Queue<Frame> frameBuffer;
+    private final BlockingQueue<Frame> frameBuffer;
 
-    private boolean isStreaming;
+    private boolean streaming;
     private boolean hasFeedingStopped;
     private final Runnable onEndOfStream;
 
     private int currentFrameIdx;
 
-    public Viewer(Queue<Frame> frameBuffer, Consumer<Frame> frameConsumer, Runnable onEndOfStream) {
+    public Viewer(BlockingQueue<Frame> frameBuffer, Consumer<Frame> frameConsumer, Runnable onEndOfStream) {
         this.frameBuffer = frameBuffer;
         this.frameConsumer = frameConsumer;
         this.onEndOfStream = onEndOfStream;
@@ -23,24 +25,18 @@ public class Viewer implements Runnable {
     }
 
     public void play() {
-        isStreaming = true;
+        streaming = true;
         hasFeedingStopped = false;
         currentFrameIdx = 0;
-        synchronized (frameBuffer) {
-            frameBuffer.clear();
-        }
     }
 
     public void stop() {
-        isStreaming = false;
-        synchronized (frameBuffer) {
-            frameBuffer.clear();
-        }
+        streaming = false;
     }
 
     public void notifyFeedingStopped() {
         this.hasFeedingStopped = true;
-        this.isStreaming = false;
+        this.streaming = false;
     }
 
     @Override
@@ -53,29 +49,26 @@ public class Viewer implements Runnable {
         long timePerFrame = 1000000000L / FPS;
         long delta = 0;
 
-        Frame frame = null;
-        while (isStreaming || (hasFeedingStopped && frameBuffer.size() > 0)) {
-            synchronized (frameBuffer) {
-                if (frameBuffer.size() > 0) {
-                    frame = frameBuffer.poll();
-                }
-            }
-            if (frame != null) {
-                while ((delta / timePerFrame) < 1) {
-                    now = System.nanoTime();
-                    delta += (now - previous);
-                    previous = now;
-                }
+       while (streaming || (hasFeedingStopped && frameBuffer.size() > 0)) {
+           try {
+               Frame frame = frameBuffer.take();
+               currentFrameIdx++;
 
-                delta = 0;
-                frameConsumer.accept(frame);
-                currentFrameIdx++;
-                frame = null;
-            }
-        }
+               while ((delta / timePerFrame) < 1) {
+                   now = System.nanoTime();
+                   delta += (now - previous);
+                   previous = now;
+               }
+               delta = 0;
+
+               frameConsumer.accept(frame);
+
+           } catch (InterruptedException e) {
+               e.printStackTrace();
+           }
+       }
 
         stop();
-        System.out.printf("Viewing stopped.%n");
         onEndOfStream.run();
     }
 

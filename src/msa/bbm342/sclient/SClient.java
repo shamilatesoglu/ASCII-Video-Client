@@ -3,11 +3,9 @@ package msa.bbm342.sclient;
 import javax.swing.*;
 import javax.swing.event.ChangeListener;
 import java.awt.event.ItemEvent;
-import java.awt.event.ItemListener;
 import java.io.IOException;
-import java.util.ArrayDeque;
-import java.util.Queue;
-import java.util.Scanner;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 
 public class SClient {
     private static final int PORT = 4242;
@@ -26,14 +24,14 @@ public class SClient {
 
     private long previousFrameTimestamp;
 
-    private final Queue<Frame> frameBuffer;
+    private final BlockingQueue<Frame> frameBuffer;
 
     private AsciiVideoConnection videoConnection;
     private Feeder feeder;
     private Viewer viewer;
     private Thread feederThread;
     private Thread viewerThread;
-    private ChangeListener onVideoSeek;
+    private ChangeListener onSeek;
 
     public static void main(String[] args) throws UnsupportedLookAndFeelException, ClassNotFoundException, InstantiationException, IllegalAccessException, IOException {
         JFrame frame = new JFrame("ASCII Video");
@@ -48,7 +46,7 @@ public class SClient {
         stopButton.setEnabled(false);
         playButton.setEnabled(true);
 
-        frameBuffer = new ArrayDeque<>();
+        frameBuffer = new ArrayBlockingQueue<>(Feeder.BUFFER_SIZE);
 
         initializeThreads();
 
@@ -107,16 +105,18 @@ public class SClient {
                     if (videoSeek.getValue() == viewer.getCurrentFrameIdx() - 1) {
                         videoSeek.setValue(viewer.getCurrentFrameIdx());
                     } else {
-                        frameBuffer.clear();
+                        synchronized (frameBuffer) {
+                            frameBuffer.clear();
+                        }
                     }
 
                     frameLabel.setText("Frame: " + viewer.getCurrentFrameIdx() + " / " + videoSeek.getMaximum());
 
-                }, this::onStop);
+                }, this::stop);
 
                 viewerThread = new Thread(viewer);
 
-                onVideoSeek = e -> {
+                onSeek = e -> {
                     if (Math.abs(viewer.getCurrentFrameIdx() - videoSeek.getValue()) > 1) {
                         feeder.setCurrentFrameIdx(videoSeek.getValue());
                         viewer.setCurrentFrameIdx(videoSeek.getValue());
@@ -132,7 +132,7 @@ public class SClient {
         new Thread(() -> {
             feeder.stop();
             viewer.stop();
-            videoSeek.removeChangeListener(onVideoSeek);
+            videoSeek.removeChangeListener(onSeek);
             videoSeek.setValue(0);
         }).start();
     }
@@ -150,7 +150,7 @@ public class SClient {
             viewerThread.start();
         }
 
-        videoSeek.addChangeListener(onVideoSeek);
+        videoSeek.addChangeListener(onSeek);
 
     }
 
