@@ -24,7 +24,7 @@ public class AsciiVideoConnection {
     public VideoInfo getVideoInfo() throws IOException {
 
         startConnection();
-        out.println("INFO");
+        out.printf("INFO %d%n", videoSource.getChannel());
         String format = in.readLine();
         Scanner scanner = new Scanner(format);
         String[] resolution = scanner.next().split("x");
@@ -54,7 +54,7 @@ public class AsciiVideoConnection {
     public Frame getFrame(int compressedFrameIdx) throws IOException {
 
         startConnection();
-        out.println("GET " + compressedFrameIdx);
+        out.printf("GET %d/%d%n", videoSource.getChannel(), compressedFrameIdx);
         StringBuilder frame = new StringBuilder();
         String line;
         while ((line = in.readLine()) != null) {

@@ -2,12 +2,17 @@ package msa.bbm342.sclient;
 
 import javax.swing.*;
 import javax.swing.event.ChangeListener;
+import java.awt.event.ItemEvent;
+import java.awt.event.ItemListener;
 import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.Queue;
+import java.util.Scanner;
 
 public class SClient {
     private static final int PORT = 4242;
+    private static final String HOST = "localhost";
+    private int channel = 1;
 
     private JTextArea frame;
     private JPanel mainPanel;
@@ -17,6 +22,7 @@ public class SClient {
     private JLabel bufferHealth;
     private JSlider videoSeek;
     private JLabel frameLabel;
+    private JComboBox channelBox;
 
     private long previousFrameTimestamp;
 
@@ -42,15 +48,30 @@ public class SClient {
         stopButton.setEnabled(false);
         playButton.setEnabled(true);
 
+        frameBuffer = new ArrayDeque<>();
+
+        initializeThreads();
+
+        initializeListeners();
+    }
+
+    private void initializeListeners() {
+
         stopButton.addActionListener(e -> stop());
         playButton.addActionListener(e -> play());
 
-        frameBuffer = new ArrayDeque<>();
-        initializeThreads();
+        channelBox.addItemListener(e -> {
+            if (e.getStateChange() == ItemEvent.SELECTED) {
+                System.out.println("Selected: " + e.getItem());
+                channel = Integer.parseInt(e.getItem().toString());
+                stop();
+                initializeThreads();
+            }
+        });
     }
 
     private void initializeThreads() {
-        videoConnection = new AsciiVideoConnection(new VideoSource("localhost", PORT, 1));
+        videoConnection = new AsciiVideoConnection(new VideoSource("localhost", PORT, channel));
 
         new Thread(() -> {
             try {
@@ -79,7 +100,8 @@ public class SClient {
                     previousFrameTimestamp = timestamp;
 
                     // Print buffer health:
-                    bufferHealth.setText("Buffer Health: " + frameBuffer.size() + " frames ");
+                    int bufferedFrameCount = frameBuffer.size();
+                    bufferHealth.setText("Buffer Health: " + (bufferedFrameCount / Viewer.FPS) + "s (" + bufferedFrameCount + " frames)");
 
                     // Set seek
                     if (videoSeek.getValue() == viewer.getCurrentFrameIdx() - 1) {
