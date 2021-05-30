@@ -9,7 +9,7 @@ import java.util.concurrent.BlockingQueue;
 public class Feeder implements Runnable {
     private static final int NOT_SET = -1;
 
-    public static final int BUFFER_SIZE = 1000;
+    public static final int BUFFER_SIZE = Viewer.FPS * 10;
 
     private final Map<Integer, Frame> frameCache;
 
@@ -67,7 +67,6 @@ public class Feeder implements Runnable {
 
     public void start() {
         feeding = true;
-        currentFrameIdx = 0;
         frameCache.clear();
     }
 

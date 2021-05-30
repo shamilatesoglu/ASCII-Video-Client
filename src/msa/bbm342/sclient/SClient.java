@@ -55,14 +55,13 @@ public class SClient {
 
     private void initializeListeners() {
 
-        stopButton.addActionListener(e -> stop());
-        playButton.addActionListener(e -> play());
+        stopButton.addActionListener(e -> onStopButtonClicked());
+        playButton.addActionListener(e -> onPlayButtonClicked());
 
         channelBox.addItemListener(e -> {
             if (e.getStateChange() == ItemEvent.SELECTED) {
                 System.out.println("Selected: " + e.getItem());
                 channel = Integer.parseInt(e.getItem().toString());
-                stop();
                 initializeThreads();
             }
         });
@@ -102,17 +101,15 @@ public class SClient {
                     bufferHealth.setText("Buffer Health: " + (bufferedFrameCount / Viewer.FPS) + "s (" + bufferedFrameCount + " frames)");
 
                     // Set seek
-                    if (videoSeek.getValue() == viewer.getCurrentFrameIdx() - 1) {
+                    if (videoSeek.getValue() == viewer.getCurrentFrameIdx() - 1 ) {
                         videoSeek.setValue(viewer.getCurrentFrameIdx());
                     } else {
-                        synchronized (frameBuffer) {
-                            frameBuffer.clear();
-                        }
+                        frameBuffer.clear();
                     }
 
                     frameLabel.setText("Frame: " + viewer.getCurrentFrameIdx() + " / " + videoSeek.getMaximum());
 
-                }, this::stop);
+                }, () -> onStopButtonClicked());
 
                 viewerThread = new Thread(viewer);
 
@@ -128,41 +125,30 @@ public class SClient {
         }).start();
     }
 
-    private void stop() {
-        new Thread(() -> {
-            feeder.stop();
-            viewer.stop();
-            videoSeek.removeChangeListener(onSeek);
-            videoSeek.setValue(0);
-        }).start();
-    }
-
-    private void play() {
-        onPlay();
-
-        if (!feederThread.isAlive() && !viewerThread.isAlive()) {
-            feeder.start();
-            feederThread = new Thread(feeder);
-            feederThread.start();
-
-            viewer.play();
-            viewerThread = new Thread(viewer);
-            viewerThread.start();
-        }
-
-        videoSeek.addChangeListener(onSeek);
-
-    }
-
-    private void onPlay() {
-        stopButton.setEnabled(true);
-        playButton.setEnabled(false);
-    }
-
-    private void onStop() {
+    private void onStopButtonClicked() {
         stopButton.setEnabled(false);
         playButton.setEnabled(true);
+        feeder.stop();
+        viewer.stop();
+        videoSeek.removeChangeListener(onSeek);
+    }
+
+    private void onPlayButtonClicked() {
         frameBuffer.clear();
+        
+        videoSeek.addChangeListener(onSeek);
+        videoSeek.setValue(0);
+
+        stopButton.setEnabled(true);
+        playButton.setEnabled(false);
+
+        feeder.start();
+        feederThread = new Thread(feeder);
+        feederThread.start();
+
+        viewer.play();
+        viewerThread = new Thread(viewer);
+        viewerThread.start();
     }
 
 }

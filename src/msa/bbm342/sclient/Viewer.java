@@ -1,7 +1,5 @@
 package msa.bbm342.sclient;
 
-import java.util.Queue;
-import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.BlockingQueue;
 import java.util.function.Consumer;
 
@@ -13,25 +11,25 @@ public class Viewer implements Runnable {
 
     private boolean streaming;
     private boolean hasFeedingStopped;
-    private final Runnable onEndOfStream;
+    private final Runnable onEndOfViewing;
 
     private int currentFrameIdx;
 
-    public Viewer(BlockingQueue<Frame> frameBuffer, Consumer<Frame> frameConsumer, Runnable onEndOfStream) {
+    public Viewer(BlockingQueue<Frame> frameBuffer, Consumer<Frame> frameConsumer, Runnable onEndOfViewing) {
         this.frameBuffer = frameBuffer;
         this.frameConsumer = frameConsumer;
-        this.onEndOfStream = onEndOfStream;
+        this.onEndOfViewing = onEndOfViewing;
         this.currentFrameIdx = 0;
     }
 
     public void play() {
         streaming = true;
         hasFeedingStopped = false;
-        currentFrameIdx = 0;
     }
 
     public void stop() {
         streaming = false;
+        hasFeedingStopped = false;
     }
 
     public void notifyFeedingStopped() {
@@ -49,27 +47,26 @@ public class Viewer implements Runnable {
         long timePerFrame = 1000000000L / FPS;
         long delta = 0;
 
-       while (streaming || (hasFeedingStopped && frameBuffer.size() > 0)) {
-           try {
-               Frame frame = frameBuffer.take();
-               currentFrameIdx++;
+        while (streaming || (hasFeedingStopped && frameBuffer.size() > 0)) {
+            try {
+                Frame frame = frameBuffer.take();
+                currentFrameIdx++;
 
-               while ((delta / timePerFrame) < 1) {
-                   now = System.nanoTime();
-                   delta += (now - previous);
-                   previous = now;
-               }
-               delta = 0;
+                while ((delta / timePerFrame) < 1) {
+                    now = System.nanoTime();
+                    delta += (now - previous);
+                    previous = now;
+                }
+                delta = 0;
 
-               frameConsumer.accept(frame);
+                frameConsumer.accept(frame);
 
-           } catch (InterruptedException e) {
-               e.printStackTrace();
-           }
-       }
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
 
-        stop();
-        onEndOfStream.run();
+        onEndOfViewing.run();
     }
 
     public int getCurrentFrameIdx() {
