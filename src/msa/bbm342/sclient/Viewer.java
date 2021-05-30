@@ -42,7 +42,7 @@ public class Viewer implements Runnable {
         play();
 
         // Ensure constant frame rate.
-        long now = System.nanoTime();
+        long now;
         long previous = System.nanoTime();
         long timePerFrame = 1000000000L / FPS;
         long delta = 0;
@@ -57,14 +57,14 @@ public class Viewer implements Runnable {
             if (frame != null) {
                 int i = 0;
                 while (i < frame.getTimeToDisplay()) {
-                    while (delta < 1) {
+                    while (delta / timePerFrame  < 1) {
                         now = System.nanoTime();
-                        delta += (now - previous) / timePerFrame;
+                        delta += (now - previous);
+                        previous = now;
                     }
-                    previous = now;
 
                     frameConsumer.accept(frame);
-                    delta -= 1;
+                    delta = 0;
                     i++;
                 }
                 frame = null;

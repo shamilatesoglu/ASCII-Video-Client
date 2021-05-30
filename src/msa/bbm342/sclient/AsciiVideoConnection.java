@@ -39,7 +39,8 @@ public class AsciiVideoConnection {
 
         startConnection();
         out.println("TIME " + frameIdx);
-        int timeToDisplay = Integer.parseInt(in.readLine());
+        String response = in.readLine();
+        int timeToDisplay = Integer.parseInt(response);
         stopConnection();
 
         startConnection();
