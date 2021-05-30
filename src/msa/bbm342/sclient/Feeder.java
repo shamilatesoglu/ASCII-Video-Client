@@ -1,54 +1,62 @@
 package msa.bbm342.sclient;
 
 import java.io.IOException;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Queue;
 
 public class Feeder implements Runnable {
+    private static final int NOT_SET = -1;
 
-    private static final int MIN_BUFFER_SIZE = 10;
+    public static final int BUFFER_SIZE = 1000;
+
+    private final Map<Integer, Frame> frameCache;
 
     private final Queue<Frame> frameBuffer;
 
     private int currentFrameIdx;
-    private AsciiVideoConnection videoConnection;
-    private Runnable onEndOfFeed;
+    private final AsciiVideoConnection videoConnection;
+    private final VideoInfo videoInfo;
+    private final Runnable onEndOfFeed;
 
     private boolean isFeeding;
 
-    public Feeder(AsciiVideoConnection videoConnection, Queue<Frame> frameBuffer, Runnable onEndOfFeed) {
+    public Feeder(AsciiVideoConnection videoConnection, VideoInfo videoInfo, Queue<Frame> frameBuffer, Runnable onEndOfFeed) {
         this.frameBuffer = frameBuffer;
         this.currentFrameIdx = 0;
         this.videoConnection = videoConnection;
         this.onEndOfFeed = onEndOfFeed;
+        this.videoInfo = videoInfo;
+        this.frameCache = new LinkedHashMap<>();
     }
 
     @Override
     public void run() {
         start();
 
-        try {
-            VideoInfo info = videoConnection.getVideoInfo();
-
-            Frame fetched = null;
-            while (isFeeding() && currentFrameIdx < info.getNumberOfDistinctFrames()) {
-                try {
-                    if (fetched == null) {
-                        fetched = videoConnection.getFrame(currentFrameIdx++);
+        Frame fetched = null;
+        while (isFeeding() && currentFrameIdx < videoInfo.getFrameCount()) {
+            try {
+                if (fetched == null) {
+                    int compressedFrameIdx = videoInfo.getCompressedFrameIdx(currentFrameIdx);
+                    if (frameCache.containsKey(compressedFrameIdx)) {
+                        fetched = frameCache.get(compressedFrameIdx);
+                    } else {
+                        fetched = videoConnection.getFrame(compressedFrameIdx);
+                        frameCache.put(compressedFrameIdx, fetched);
                     }
-                    synchronized (frameBuffer) {
-                        if (frameBuffer.size() < MIN_BUFFER_SIZE) {
-                            frameBuffer.add(fetched);
-                            fetched = null;
-                        }
-                    }
-                } catch (IOException e) {
-                    System.err.printf("Error while getting frame: %d%n", currentFrameIdx - 1);
-                    e.printStackTrace();
                 }
+                synchronized (frameBuffer) {
+                    if (frameBuffer.size() < BUFFER_SIZE) {
+                        frameBuffer.add(fetched);
+                        currentFrameIdx++;
+                        fetched = null;
+                    }
+                }
+            } catch (IOException e) {
+                System.err.printf("Error while getting frame: %d%n", currentFrameIdx - 1);
+                e.printStackTrace();
             }
-        } catch (IOException e) {
-            System.err.printf("Error while getting video info.%n");
-            e.printStackTrace();
         }
 
         stop();
@@ -67,5 +75,14 @@ public class Feeder implements Runnable {
     public void start() {
         isFeeding = true;
         currentFrameIdx = 0;
+        frameCache.clear();
+    }
+
+    public int getCurrentFrameIdx() {
+        return currentFrameIdx;
+    }
+
+    public void setCurrentFrameIdx(int currentFrameIdx) {
+        this.currentFrameIdx = currentFrameIdx;
     }
 }

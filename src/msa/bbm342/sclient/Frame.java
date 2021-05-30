@@ -1,19 +1,24 @@
 package msa.bbm342.sclient;
 
 public class Frame {
-    private int timeToDisplay;
-    private String frame;
+    private final String frame;
+    private final int compressedFrameIdx;
 
-    public Frame(int timeToDisplay, String frame) {
-        this.timeToDisplay = timeToDisplay;
+    public Frame(String frame, int compressedFrameIdx) {
         this.frame = frame;
-    }
-
-    public int getTimeToDisplay() {
-        return timeToDisplay;
+        this.compressedFrameIdx = compressedFrameIdx;
     }
 
     public String getFrame() {
         return frame;
+    }
+
+    public int getCompressedFrameIdx() {
+        return compressedFrameIdx;
+    }
+
+    @Override
+    protected Frame clone() throws CloneNotSupportedException {
+        return (Frame) super.clone();
     }
 }

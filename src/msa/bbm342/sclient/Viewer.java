@@ -1,11 +1,10 @@
 package msa.bbm342.sclient;
 
 import java.util.Queue;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 public class Viewer implements Runnable {
-    private static final int FPS = 20;
+    public static final int FPS = 20;
 
     private final Consumer<Frame> frameConsumer;
     private final Queue<Frame> frameBuffer;
@@ -14,15 +13,22 @@ public class Viewer implements Runnable {
     private boolean hasFeedingStopped;
     private final Runnable onEndOfStream;
 
+    private int currentFrameIdx;
+
     public Viewer(Queue<Frame> frameBuffer, Consumer<Frame> frameConsumer, Runnable onEndOfStream) {
         this.frameBuffer = frameBuffer;
         this.frameConsumer = frameConsumer;
         this.onEndOfStream = onEndOfStream;
+        this.currentFrameIdx = 0;
     }
 
     public void play() {
         isStreaming = true;
         hasFeedingStopped = false;
+        currentFrameIdx = 0;
+        synchronized (frameBuffer) {
+            frameBuffer.clear();
+        }
     }
 
     public void stop() {
@@ -55,18 +61,15 @@ public class Viewer implements Runnable {
                 }
             }
             if (frame != null) {
-                int i = 0;
-                while (i < frame.getTimeToDisplay()) {
-                    while (delta / timePerFrame  < 1) {
-                        now = System.nanoTime();
-                        delta += (now - previous);
-                        previous = now;
-                    }
-
-                    frameConsumer.accept(frame);
-                    delta = 0;
-                    i++;
+                while ((delta / timePerFrame) < 1) {
+                    now = System.nanoTime();
+                    delta += (now - previous);
+                    previous = now;
                 }
+
+                frameConsumer.accept(frame);
+                delta = 0;
+                currentFrameIdx++;
                 frame = null;
             }
         }
@@ -76,8 +79,11 @@ public class Viewer implements Runnable {
         onEndOfStream.run();
     }
 
-    private static void burn(long millis) {
-        long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(millis);
-        while (System.nanoTime() < deadline) ;
+    public int getCurrentFrameIdx() {
+        return currentFrameIdx;
+    }
+
+    public void setCurrentFrameIdx(int currentFrameIdx) {
+        this.currentFrameIdx = currentFrameIdx;
     }
 }
