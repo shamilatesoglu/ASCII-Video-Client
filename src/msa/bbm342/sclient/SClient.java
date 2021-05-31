@@ -62,6 +62,7 @@ public class SClient {
             if (e.getStateChange() == ItemEvent.SELECTED) {
                 System.out.println("Selected: " + e.getItem());
                 channel = Integer.parseInt(e.getItem().toString());
+                onStopButtonClicked();
                 initializeThreads();
             }
         });
