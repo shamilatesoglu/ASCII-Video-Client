@@ -82,7 +82,6 @@ public class SClient {
 
         channelBox.addItemListener(e -> {
             if (e.getStateChange() == ItemEvent.SELECTED) {
-                System.out.println("Selected: " + e.getItem());
                 sChannel = Integer.parseInt(e.getItem().toString());
                 onStopButtonClicked();
                 initializeThreads();
