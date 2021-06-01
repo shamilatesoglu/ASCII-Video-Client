@@ -6,9 +6,9 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
 public class SClient {
-    private static final int PORT = 4242;
-    private static final String HOST = "localhost";
-    private int channel = 1;
+    private static int sPort = 4242;
+    private static String sHost = "localhost";
+    private static int sChannel = 1;
 
     private JTextArea frame;
     private JPanel mainPanel;
@@ -31,7 +31,7 @@ public class SClient {
     private Thread viewerThread;
     private ChangeListener onSeek;
 
-    private static void setupUI(SClient client) throws UnsupportedLookAndFeelException, ClassNotFoundException, InstantiationException, IllegalAccessException {
+    private static void setupUI() throws UnsupportedLookAndFeelException, ClassNotFoundException, InstantiationException, IllegalAccessException, IOException {
         JFrame frame = new JFrame("ASCII Video Client");
         for (UIManager.LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) {
             if (info.getName().contains("Nimbus")) {
@@ -39,20 +39,34 @@ public class SClient {
                 break;
             }
         }
-        frame.setContentPane(client.mainPanel);
+        frame.setContentPane(new SClient().mainPanel);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.pack();
         frame.setVisible(true);
     }
 
     public static void main(String[] args) throws UnsupportedLookAndFeelException, ClassNotFoundException, InstantiationException, IllegalAccessException, IOException {
-        SClient client = new SClient();
-        setupUI(client);
+        for (int i = 0; i < args.length; i++) {
+            String arg = args[i];
+            if (arg.equals("-p")) {
+                sPort = Integer.parseInt(args[i + 1]);
+            }
+            if (arg.equals("-a")) {
+                sHost = args[i + 1].trim();
+            }
+            if (arg.equals("-ch")) {
+                sChannel = Integer.parseInt(args[i + 1]);
+            }
+        }
+
+        setupUI();
     }
 
     public SClient() throws IOException {
         stopButton.setEnabled(false);
         playButton.setEnabled(true);
+
+        channelBox.setSelectedItem(String.valueOf(sChannel));
 
         frameBuffer = new ArrayBlockingQueue<>(Feeder.BUFFER_SIZE);
 
@@ -69,7 +83,7 @@ public class SClient {
         channelBox.addItemListener(e -> {
             if (e.getStateChange() == ItemEvent.SELECTED) {
                 System.out.println("Selected: " + e.getItem());
-                channel = Integer.parseInt(e.getItem().toString());
+                sChannel = Integer.parseInt(e.getItem().toString());
                 onStopButtonClicked();
                 initializeThreads();
             }
@@ -77,7 +91,7 @@ public class SClient {
     }
 
     private void initializeThreads() {
-        videoConnection = new AsciiVideoConnection(new VideoSource(HOST, PORT, channel));
+        videoConnection = new AsciiVideoConnection(new VideoSource(sHost, sPort, sChannel));
 
         if (viewerThread != null) {
             viewerThread.interrupt();
