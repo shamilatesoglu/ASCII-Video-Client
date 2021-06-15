@@ -6,4 +6,4 @@ A client for streaming ASCII videos in the format explained [here](http://www.as
 ![GUI of the client](https://i.ibb.co/m0Wj6QS/Screenshot-2021-06-15-151606.png)
 
 ### Server
-Server-side can be found at [here](https://github.com/shamilatesoglu/ASCII-Video-Server).
+Server-side can be found [here](https://github.com/shamilatesoglu/ASCII-Video-Server).
